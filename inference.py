@@ -17,6 +17,12 @@ import pytorch_lightning as pl
 # from PATH import CUSTOMPREPROCESS as preprocess
 
 
+# fix random seeds for reproducibility
+SEED = 123
+seed_everything(SEED, workers=True) # pl seed
+
+
+
 def inference(args):
     ### TODO : preprocess 함수도 인자로 넘겼으면..
     datamodule = DataModule(args.model_name, 
