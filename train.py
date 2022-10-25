@@ -21,6 +21,9 @@ from pytorch_lightning import seed_everything
 # from PATH import CUSTOMTRAINER as Trainer
 # from PATH import CUSTOMPREPROCESS as preprocess
 
+### TODO : utils에 scatterplot 구현하기
+# "일례로, 위 그림은 모두 0.82의 상관계수를 가지나 모두 생김새가 다릅니다. 그러므로, 결과 분석 시 꼭 산점도를 그려보며 모델의 취약점을 평가해야합니다."
+# from utils import scatterplot
 
 
 # fix random seeds for reproducibility
@@ -59,13 +62,17 @@ def train(args):
 
     now = datetime.now()
     now_str = now.strftime('%Y-%m-%d_%H:%M:%S')
-    saved_model_path += '+'.join([str(test_pearson), 
-                                    args.model_name, 
-                                    now_str,
-                                    args.expreimenter,
-                                    '.pt'])
+    saved_model_name = '+'.join([str(test_pearson), 
+                                args.model_name, 
+                                now_str,
+                                args.expreimenter])
     
-    torch.save(model, saved_model_path)
+    torch.save(model, saved_model_path + saved_model_name + '.pt')
+
+
+    ### TODO : scatterplot 그리고 저장하는 함수
+    # scatterplot(data, './save/plot/' + saved_model_name + '.png')
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
