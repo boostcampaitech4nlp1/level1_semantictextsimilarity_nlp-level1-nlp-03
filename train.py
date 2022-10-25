@@ -25,6 +25,9 @@ from pytorch_lightning import seed_everything
 # "일례로, 위 그림은 모두 0.82의 상관계수를 가지나 모두 생김새가 다릅니다. 그러므로, 결과 분석 시 꼭 산점도를 그려보며 모델의 취약점을 평가해야합니다."
 # from utils import scatterplot
 
+### TODO : utils에 save_config 구현하기
+# from utils import save_config
+
 
 # fix random seeds for reproducibility
 SEED = 123
@@ -72,6 +75,10 @@ def train(args):
 
     ### TODO : scatterplot 그리고 저장하는 함수
     # scatterplot(data, './save/plot/' + saved_model_name + '.png')
+
+
+    ### TODO : config 저장하는 함수
+    # save_config(args, './save/config/' + saved_model_name + '.config')
 
 
 if __name__ == "__main__":
