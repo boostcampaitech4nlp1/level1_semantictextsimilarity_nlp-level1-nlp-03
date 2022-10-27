@@ -1,3 +1,6 @@
+import seaborn as sns
+import pandas as pd
+
 def base_preprocess(data):
     """
     preprocess 함수의 베이스. 
@@ -14,8 +17,16 @@ def base_preprocess(data):
     return data
 
 
-def scatterplot(true, pred):
+def scatterplot(true, pred, filename):
     ##plot
+    data = pd.DataFrame({
+        'true': pd.Series(true),
+        'pred': pd.Series(pred)
+    })
+
+    plot = sns.scatterplot(data, x='true', y='pred')
+    fig = plot.get_figure()
+    fig.savefig('./save/' + filename) 
 
     return 0
 
