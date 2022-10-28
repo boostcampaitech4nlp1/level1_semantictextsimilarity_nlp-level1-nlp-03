@@ -1,59 +1,133 @@
-from torchvision import datasets, transforms
-from base import BaseDataLoader
 import pandas as pd
+import os
+from tqdm.auto import tqdm
+import transformers
+from trainsformers import AutoTokenizer
 import torch
-from torch.utils.data import Dataset, random_split
+from torch.utils.data import Dataset
+from torch.utils.data import DataLoader
+import pytorch_lightning as pl
 
-from transformers import AutoTokenizer # huggingface 
-MODEL_NAME = "bert-base-multilingual-cased"
+class BaseDataset(Dataset):
+    def __init__(self, model_name, max_length, inputs, targets=[]):
+        self.inputs = inputs
+        self.targets = targets
+        self.model_name=model_name
+        self.max_length = max_length
+        self.tokenizer = AutoTokenizer.from_pretrained(self.model_name, max_length=self.max_length)
 
-
-
-class MyDataloader(BaseDataLoader):
-    """
-    KLUE SST Dataset
-    """
-    def __init__(self, data_dir, batch_size, shuffle=True, validation_split=0.0, num_workers=0, training=True):
-        trsfm = transforms.Compose([
-            transforms.ToTensor()
-            # transforms.Normalize((0.1307,), (0.3081,))
-        ])
-        self.data_dir = data_dir
-        self.dataset = DF2DataSet(MODEL_NAME)
-        super().__init__(self.dataset, batch_size, shuffle, validation_split, num_workers)
-
-
-class DF2DataSet(Dataset):
-    def __init__(self,MODEL_NAME = "bert-base-multilingual-cased", max_len=512, truncate=True):
-        self.load_data()
-        # label만 있는 데이터 생성
-        self.label = self.df['gold_label']
-        
-        # label을 숫자로 변환하기 위한 label 모음
-        self.get_labels = set(self.label)
-
-        # 문자열을 tensor vector로 변환해주는는 tokenizer 준비
-        self.tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
-
-        # tokenizer로 두 문장 (premise, hypothesis)을 변환하여 입력 데이터 생성
-        ## 두 문장을 string 타입의 list로 변환
-        p_text = pd.Series(self.df['premise'], dtype="string").tolist()
-        h_text = pd.Series(self.df['hypothesis'], dtype="string").tolist()
-
-        self.input_data = self.tokenizer(text = p_text, text_pair = h_text,
-                                          padding='max_length',
-                                          truncation=truncate,
-                                          return_tensors='pt',
-                                          max_length=max_len)
-    def load_data(self):
-      valid_fn = '/content/KLUE/klue_benchmark/klue-nli-v1.1/klue-nli-v1.1_dev.json'
-      self.df = pd.read_json(valid_fn)
+    # 입력하는 개수만큼 데이터를 사용합니다
     def __len__(self):
-        return len(self.label)
+        return len(self.inputs)
 
+    # 학습 및 추론 과정에서 데이터를 1개씩 꺼내오는 곳
     def __getitem__(self, idx):
-        item = {"inputs": self.input_data[idx], 
-                # label을 id로 변환
-                "labels": torch.tensor(self.get_labels.index(self.label.iloc[idx])),
-                }
-        return item
+        self.tokenizer()
+        output = self.tokenizer(inputs[idx], add_special_tokens=True, padding='max_length', truncation=True)
+        sep_id = x['input_ids'].index(tokenizer.get_vocab()['[SEP]'])
+        output['token_type_ids'] = [1 if ids > id else 0 for ids in range(len(x['input_ids']))]
+        
+        input_ids = output['input_ids'].squeeze(0)
+        attention_mask = output['attention_mask'].squeeze(0)
+        token_type_ids = output['token_type_ids'].squeeze(0)
+        label = torch.tensor(targets[idx])
+
+        if len(self.targets) == 0:  #test
+            return x,y
+        else: #train
+            return x
+        
+
+        if len(self.targets) == 0:  #test
+            return {
+            'input_ids': input_ids,
+            'attention_mask': attention_mask,
+            'token_type_ids': token_type_ids,
+            'label': label
+            }
+        else: #train
+            return {
+            'input_ids': input_ids,
+            'attention_mask': attention_mask,
+            'token_type_ids': token_type_ids
+            }
+
+    
+
+class BaseDataloader(pl.LightningDataModule):
+    def __init__(self, model_name, batch_size, shuffle, path, max_length, num_workers):   #path 통합함, max_legth, numworkers 추가함
+        super().__init__()
+        self.model_name = model_name
+        self.batch_size = batch_size
+        self.shuffle = shuffle
+        self.max_length=max_length
+        self.num_workers=num_workers
+
+        self.train_path = os.path.join(path,"train.csv")
+        self.dev_path = os.path.join(path,"dev.csv")
+        self.test_path = os.path.join(path,"dev.csv")
+        self.predict_path = os.path.join(path,"test.csv")
+
+        self.train_dataset = None
+        self.val_dataset = None
+        self.test_dataset = None
+        self.predict_dataset = None
+
+        self.tokenizer = transformers.AutoTokenizer.from_pretrained(self.model_name, max_length=self.max_length)       #AutoTokenizer안쓰면 변경해야함
+        self.target_columns = ['label']
+        self.delete_columns = ['id','source','binary-label']                                                #버릴 컬럼 필요에 따라 변경 가능 
+        self.text_columns = ['sentence_1', 'sentence_2']                                                    #필요에 따라 변경 가능
+
+    def preprocessing(self, data):
+        # 안쓰는 컬럼을 삭제합니다.
+        for drop_column in self.delete_columns:
+            if drop_column in data.columns:
+                data = data.drop(columns=self.delete_columns)
+        
+        #문자합치기
+        inputs=[]
+        for idx, item in tqdm(data.iterrows(), desc='tokenizing', total=len(data)):
+            # 두 입력 문장을 [SEP] 토큰으로 이어붙여서 전처리합니다.
+            text = '[SEP]'.join([item[text_column] for text_column in self.text_columns])
+            inputs.append(text)
+        
+        # 타겟 데이터가 없으면 빈 배열을 리턴합니다.
+        try:
+            targets = data[self.target_columns].values.tolist()
+        except:
+            targets = []
+        return inputs, targets
+    
+    def setup(self, stage='fit'):
+        if stage == 'fit':
+            # 학습 데이터
+            train_data = pd.read_csv(self.train_path)
+            train_inputs, train_targets = self.preprocessing(train_data)
+            self.train_dataset = BaseDataset(self.model_name, self.max_length, train_inputs, train_targets)
+            # 검증데이터
+            val_data = pd.read_csv(self.dev_path)
+            val_inputs, val_targets = self.preprocessing(val_data)
+            self.val_dataset = BaseDataset(self.model_name, self.max_length,val_inputs, val_targets)
+
+        else:
+            # 평가데이터 준비
+            test_data = pd.read_csv(self.test_path)
+            test_inputs, test_targets = self.preprocessing(test_data)
+            self.test_dataset = BaseDataset(self.model_name, self.max_length,test_inputs, test_targets)
+
+            predict_data = pd.read_csv(self.predict_path)
+            predict_inputs, predict_targets = self.preprocessing(predict_data)
+            self.predict_dataset = BaseDataset(predict_inputs, [])
+
+    def train_dataloader(self):
+        # train 데이터만 shuffle을 적용해줍니다, 필요하다면 val, test 데이터에도 shuffle을 적용할 수 있습니다
+        return DataLoader(self.train_dataset, batch_size=self.batch_size, shuffle=self.shuffle, num_workers=self.num_workers )
+
+    def val_dataloader(self):
+        return DataLoader(self.val_dataset, batch_size=self.batch_size)
+
+    def test_dataloader(self):
+        return DataLoader(self.test_dataset, batch_size=self.batch_size)
+
+    def predict_dataloader(self):
+        return DataLoader(self.predict_dataset, batch_size=self.batch_size)
