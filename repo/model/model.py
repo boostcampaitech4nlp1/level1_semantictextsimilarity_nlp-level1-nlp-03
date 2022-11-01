@@ -5,18 +5,18 @@ import torch
 import torchmetrics
 
 class BaseModel(pl.LightningModule):
-    def __init__(self, model_name, lr):
+    def __init__(self, cfg):
         super().__init__()
         self.save_hyperparameters()
 
-        self.model_name = model_name
-        self.lr = lr
+        self.model_name = cfg.model.model_name
+        self.lr = cfg.train.learning_rate
 
         # 사용할 모델을 호출합니다.
         self.plm = transformers.AutoModelForSequenceClassification.from_pretrained(
-            pretrained_model_name_or_path=model_name, num_labels=1, force_download=True)
-        # Loss 계산을 위해 사용될 L1Loss를 호출합니다.
-        self.loss_func = nn.SmoothL1Loss()
+            pretrained_model_name_or_path=self.model_name, num_labels=1, force_download=True)
+        # Loss 계산을 위해 사용될 Loss 함수를 호출합니다. 
+        self.loss_func = nn.L1Loss()
 
     def forward(self, x):
         x = self.plm(x)['logits']
@@ -30,10 +30,13 @@ class BaseModel(pl.LightningModule):
         self.log("train_loss", loss)
         # wandb.log("train_loss", loss)
         return loss
+    
+    """
     def training_epoch_end(self, outputs):
         avg_train_loss = torch.tensor([x for x in outputs]).mean()
         self.log("train_avg_loss", avg_train_loss)
         return avg_train_loss
+    """
 
     def validation_step(self, batch, batch_idx):
         x, y = batch
@@ -47,10 +50,12 @@ class BaseModel(pl.LightningModule):
 
         return loss
 
+    """
     def validation_epoch_end(self, outputs):
         avg_val_loss = torch.tensor([x for x in outputs]).mean()
         self.log("val_avg_loss", avg_val_loss)
         return avg_val_loss
+    """
 
     def test_step(self, batch, batch_idx):
         x, y = batch

@@ -27,7 +27,7 @@ class Dataset(torch.utils.data.Dataset):
 
 
 class Dataloader(pl.LightningDataModule):
-    def __init__(self, model_name, preprocess, batch_size, shuffle, train_path, dev_path, test_path, predict_path):
+    def __init__(self, model_name, preprocess, augmentation, batch_size, shuffle, train_path, dev_path, test_path, predict_path):
         super().__init__()
         self.model_name = model_name
         self.batch_size = batch_size
@@ -49,6 +49,7 @@ class Dataloader(pl.LightningDataModule):
         self.text_columns = ['sentence_1', 'sentence_2']
 
         self.preprocess = preprocess
+        self.augmentation = augmentation
 
     def tokenizing(self, dataframe):
         data = []
@@ -82,6 +83,9 @@ class Dataloader(pl.LightningDataModule):
             # 학습 데이터와 검증 데이터셋을 호출합니다
             train_data = pd.read_csv(self.train_path)
             val_data = pd.read_csv(self.dev_path)
+            
+            # augmentation - only train
+            train_data = self.augmentation(train_data)
 
             # 학습데이터 준비
             train_inputs, train_targets = self.preprocessing(train_data)

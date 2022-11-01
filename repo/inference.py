@@ -10,35 +10,42 @@ import torch
 import torchmetrics
 import pytorch_lightning as pl
 
+from dataloader import *
+
 from utils import *
+
+from pytorch_lightning.callbacks import ModelCheckpoint
+
+from omegaconf import OmegaConf
+import wandb
+from pytorch_lightning.loggers import WandbLogger
 
 
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--model_name', default='klue/roberta-small', type=str)
-    parser.add_argument('--batch_size', default=16, type=int)
-    parser.add_argument('--max_epoch', default=1, type=int)
-    parser.add_argument('--shuffle', default=True)
-    parser.add_argument('--learning_rate', default=1e-5, type=float)
-    parser.add_argument('--train_path', default='../data/train.csv')
-    parser.add_argument('--dev_path', default='../data/dev.csv')
-    parser.add_argument('--test_path', default='../data/test.csv')
-    parser.add_argument('--predict_path', default='../data/test.csv')
+    parser.add_argument('--config', type=str, default='sample')
+    args, _ = parser.parse_known_args()
 
-    parser.add_argument('--inference_model_name', default='model.pt')
-    args = parser.parse_args()
+    cfg = OmegaConf.load(f'./config/{args.config}.yaml')
 
-    # dataloader와 model을 생성합니다.
-    dataloader = Dataloader(args.model_name, args.batch_size, args.shuffle, args.train_path, args.dev_path,
-                            args.test_path, args.predict_path)
+    dataloader = Dataloader(cfg.model.model_name, getattr(sys.modules[__name__], cfg.custom.preprocess), 
+                            getattr(sys.modules[__name__], cfg.data.augmentation),
+                            cfg.train.batch_size, cfg.data.shuffle, 
+                            cfg.path.train_path, cfg.path.dev_path,
+                            cfg.path.test_path, cfg.path.predict_path)
 
-    # gpu가 없으면 'gpus=0'을, gpu가 여러개면 'gpus=4'처럼 사용하실 gpu의 개수를 입력해주세요
-    trainer = pl.Trainer(gpus=1, max_epochs=args.max_epoch, log_every_n_steps=1)
+    checkpoint_callback = ModelCheckpoint(
+        dirpath='./save/ckpt/',
+        filename=cfg.model.saved_name+'-{epoch}-{val_pearson:.2f}')
+
+    trainer = pl.Trainer(gpus=cfg.train.gpus, max_epochs=cfg.train.max_epoch, 
+                        log_every_n_steps=cfg.train.logging_step,
+                        callbacks=[checkpoint_callback])
 
     # Inference part
     # 저장된 모델로 예측을 진행합니다.
-    model = torch.load(args.inference_model_name)
+    model = torch.load('./save/model/' + cfg.model.saved_name + '.pt')
     predictions = trainer.predict(model=model, datamodule=dataloader)
 
     # 예측된 결과를 형식에 맞게 반올림하여 준비합니다.
@@ -47,7 +54,10 @@ def main():
     # output 형식을 불러와서 예측된 결과로 바꿔주고, output.csv로 출력합니다.
     output = pd.read_csv('../data/sample_submission.csv')
     output['target'] = predictions
-    output.to_csv('output.csv', index=False)
+    output.to_csv('./save/output/' + cfg.model.saved_name + '.csv', index=False)
+
+    # scatterplot
+    scatterplot(model, trainer, dataloader, cfg.model.saved_name + '.png')
 
 
 if __name__ == '__main__':
