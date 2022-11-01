@@ -5,9 +5,9 @@ custom:
   preprocess: base_preprocess
 
 path:
-  train_path: ../data/train.csv
-  dev_path: ../data/dev.csv
-  test_path: ../data/dev.csv
+  train_path: ../data/final_train.csv
+  dev_path: ../data/final_val.csv
+  test_path: ../data/final_test.csv
   predict_path: ../data/test.csv
 
 data:
@@ -15,12 +15,12 @@ data:
   augmentation: base_augmentation
 
 model:
-  model_name: lighthouse/mdeberta-v3-base-kor-further
-  saved_name: mdeberta_v3-test
+  model_name: xlm-roberta-base
+  saved_name: xlm-roberta-base
 
 train:
   gpus: 1
-  batch_size: 16
-  max_epoch: 1
+  batch_size: 32
+  max_epoch: 20
   learning_rate: 1e-5
   logging_step: 1

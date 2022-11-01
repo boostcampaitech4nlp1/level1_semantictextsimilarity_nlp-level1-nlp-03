@@ -20,6 +20,7 @@ import wandb
 from pytorch_lightning.loggers import WandbLogger
 
 pl.utilities.seed.seed_everything(1234)
+torch.cuda.empty_cache()
 
 def main():
     parser = argparse.ArgumentParser()

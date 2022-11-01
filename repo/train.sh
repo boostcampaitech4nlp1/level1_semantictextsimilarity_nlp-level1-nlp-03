@@ -1,6 +1,6 @@
 #!/bin/bash
 
-CONFIGS=("sample" "hanspell")
+CONFIGS=("xlm-roberta-base" "xlm-roberta-large" "xlm-roberta-large-ko")
 
 for (( i=0; i<${#CONFIGS[@]}; i++ ))
 do

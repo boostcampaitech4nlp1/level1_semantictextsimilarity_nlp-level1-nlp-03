@@ -5,9 +5,9 @@ custom:
   preprocess: base_preprocess
 
 path:
-  train_path: ../data/train.csv
-  dev_path: ../data/dev.csv
-  test_path: ../data/dev.csv
+  train_path: ../data/final_train.csv
+  dev_path: ../data/final_val.csv
+  test_path: ../data/final_test.csv
   predict_path: ../data/test.csv
 
 data:
@@ -15,8 +15,8 @@ data:
   augmentation: base_augmentation
 
 model:
-  model_name: lighthouse/mdeberta-v3-base-kor-further
-  saved_name: mdeberta_v3-test
+  model_name: microsoft/mdeberta-v3-base
+  saved_name: mdeberta-v3-test
 
 train:
   gpus: 1

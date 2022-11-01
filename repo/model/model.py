@@ -16,7 +16,7 @@ class BaseModel(pl.LightningModule):
         self.plm = transformers.AutoModelForSequenceClassification.from_pretrained(
             pretrained_model_name_or_path=self.model_name, num_labels=1, force_download=True)
         # Loss 계산을 위해 사용될 Loss 함수를 호출합니다. 
-        self.loss_func = nn.L1Loss()
+        self.loss_func = nn.SmoothL1Loss()
 
     def forward(self, x):
         x = self.plm(x)['logits']
