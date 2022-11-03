@@ -62,7 +62,10 @@ class Dataloader(pl.LightningDataModule):
 
     def preprocessing(self, data):
         # 안쓰는 컬럼을 삭제합니다.
-        data = data.drop(columns=self.delete_columns)
+        try:
+            data = data.drop(columns=self.delete_columns)
+        except:
+            data = data
 
         # 타겟 데이터가 없으면 빈 배열을 리턴합니다.
         try:

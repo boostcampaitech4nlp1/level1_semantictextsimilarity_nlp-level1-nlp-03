@@ -8,7 +8,7 @@ import torch
 
 import re
 
-from .eda import EDA
+# from .eda import EDA
 
 
 
@@ -111,19 +111,19 @@ def switch_v2(data):
 
     return pd.concat([data, newdata])
 
-def eda_x2(data):
-    newdata = data.copy()
+# def eda_x2(data):
+#     newdata = data.copy()
 
-    for i, (s1, s2) in enumerate(zip(data['sentence_1'], data['sentence_2'])):
-        s1_aug = EDA(s1, alpha_sr=.0, alpha_ri=.0, alpha_rs=0.1, p_rd=0.1, num_aug=1)[0]
-        s2_aug = EDA(s2, alpha_sr=.0, alpha_ri=.0, alpha_rs=0.1, p_rd=0.1, num_aug=1)[0]
+#     for i, (s1, s2) in enumerate(zip(data['sentence_1'], data['sentence_2'])):
+#         s1_aug = EDA(s1, alpha_sr=.0, alpha_ri=.0, alpha_rs=0.1, p_rd=0.1, num_aug=1)[0]
+#         s2_aug = EDA(s2, alpha_sr=.0, alpha_ri=.0, alpha_rs=0.1, p_rd=0.1, num_aug=1)[0]
         
-        newdata['sentence_1'][i] = s1_aug
-        newdata['sentence_2'][i] = s2_aug
+#         newdata['sentence_1'][i] = s1_aug
+#         newdata['sentence_2'][i] = s2_aug
 
-        print(s1_aug, s2_aug)
+#         print(s1_aug, s2_aug)
 
-    return pd.concat([data, newdata])
+#     return pd.concat([data, newdata])
 
 
 

@@ -41,7 +41,11 @@ def main():
 
     checkpoint_callback = ModelCheckpoint(
         dirpath='./save/ckpt/',
-        filename=cfg.model.saved_name+'-{epoch}-{val_pearson:.4f}')
+        filename=cfg.model.saved_name+'-{epoch}-{val_pearson:.4f}',
+        mode='max',
+        monitor='val_pearson',
+        save_top_k=3,
+        save_last=True)
 
     trainer = pl.Trainer(gpus=cfg.train.gpus, max_epochs=cfg.train.max_epoch, 
                         logger=wandb_logger, log_every_n_steps=cfg.train.logging_step,
@@ -50,13 +54,14 @@ def main():
     # Train part
     trainer.fit(model=model, datamodule=dataloader)
     
+    torch.save(model, './save/model/' + cfg.model.saved_name + '.pt')
 
     # test_pearson[0]['test_pearson']으로 점수 불러올 수 있음. 
     # 학습이 완료된 모델을 저장합니다.
     ckpt = model.load_from_checkpoint(checkpoint_callback.best_model_path)
     
     trainer.test(model=ckpt, datamodule=dataloader)
-    torch.save(ckpt, './save/model/' + cfg.model.saved_name + '.pt')
+    
 
 
 if __name__ == '__main__':
