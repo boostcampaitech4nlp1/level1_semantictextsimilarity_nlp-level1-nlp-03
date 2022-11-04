@@ -1,134 +1,141 @@
-import torch
-import pytorch_lightning as pl
-import numpy as np
+import argparse
+
 import pandas as pd
-from tqdm import tqdm
-from torch.utils.data import Dataset, DataLoader
-from transformers import AutoTokenizer
-from utils import remove_word
 
-class STSDataset(Dataset):
-    def __init__(self, path, tokenizer, mode) -> None:
-        super(STSDataset, self).__init__()
-        self.mode = mode
-        self.data = pd.read_csv(path)
-        self.data.replace('', np.nan, inplace=True)
-        self.data.dropna(axis=0, inplace=True)
-        self.sources = self.data['source'].tolist()
+from tqdm.auto import tqdm
+from torch import nn
+import pytorch_lightning as pl
+import transformers
+import torch
+import torchmetrics
+import re
+from hanspell import spell_checker
 
-        if self.mode != 'Test':
-            self.labels = self.data['label'].values.tolist()
-        self.columns = ['sentence_1', 'sentence_2']
-        self.tokenizer = tokenizer
-        self.max_len = self.tokenizer.model_max_length
-        self.sep_tok = self.tokenizer.sep_token if self.tokenizer.sep_token else '[SEP]'
-        self.preprocessing()
-        
-        print(f"length of the {self.mode} Data : {len(self.data)}")
+class Dataset(torch.utils.data.Dataset):
+    def __init__(self, inputs, targets=[]):
+        self.inputs = inputs
+        self.targets = targets
+    # 학습 및 추론 과정에서 데이터를 1개씩 꺼내오는 곳
+    def __getitem__(self, idx):
+        # 정답이 있다면 else문을, 없다면 if문을 수행합니다
+        if len(self.targets) == 0:
+            return torch.tensor(self.inputs[idx])
+        else:
+            return torch.tensor(self.inputs[idx]), torch.tensor(self.targets[idx])
 
-    def preprocessing(self):
+    # 입력하는 개수만큼 데이터를 사용합니다
+    def __len__(self):
+        return len(self.inputs)
+
+
+class Dataloader(pl.LightningDataModule):
+    def __init__(self, model_name,batch_size, shuffle, train_path, dev_path, test_path, predict_path):
+        super().__init__()
+        self.model_name = model_name
+        self.batch_size = batch_size
+        self.shuffle = shuffle
+
+        self.train_path = train_path
+        self.dev_path = dev_path
+        self.test_path = test_path
+        self.predict_path = predict_path
+
+        self.train_dataset = None
+        self.val_dataset = None
+        self.test_dataset = None
+        self.predict_dataset = None
+
+        self.tokenizer = transformers.AutoTokenizer.from_pretrained(model_name, max_length=160)
+        self.target_columns = ['label']
+        self.delete_columns = ['id']
+        self.text_columns = ['sentence_1', 'sentence_2']
+
+
+    def tokenizing(self, dataframe):
         data = []
-        for idx, rows in tqdm(self.data[self.columns].iterrows(), desc=f"tokenizing...({self.mode})"):
-            # remove_word(rows)
-            text = '[SEP]'.join(rows.tolist())
-
+        for idx, item in tqdm(dataframe.iterrows(), desc='tokenizing', total=len(dataframe)):
+            # 두 입력 문장을 [SEP] 토큰으로 이어붙여서 전처리합니다.
+            text = '[SEP]'.join([item[text_column] for text_column in self.text_columns])
             outputs = self.tokenizer(text, add_special_tokens=True, padding='max_length', truncation=True)
-            data.append(outputs)
+            data.append(outputs['input_ids'])
+        return data
+
+    def preprocessing(self, data):
+        # 안쓰는 컬럼을 삭제합니다.
+        try:
+            data = data.drop(columns=self.delete_columns)
+        except:
+            data = data
+
+        # 타겟 데이터가 없으면 빈 배열을 리턴합니다.
+        try:
+            targets = data[self.target_columns].values.tolist()
+        except:
+            targets = []
+
+        # 토크나이징 전 custom preprocess
+        def switch_v2(data):
+            newdata = data.copy()[data['label']!=0.0]
+    
+            newdata['sentence_1'] = data['sentence_2']
+            newdata['sentence_2'] = data['sentence_1']
+
+            print(len(newdata))
+
+            return pd.concat([data, newdata])
+
+        data = switch_v2(data)
+
+        def clean(df):
+            corpus = re.sub("&",'',df).lower()
+            corpus = re.sub("((.)\\2{2,})","\\2\\2\\2",corpus)
+            corpus = spell_checker.check(corpus).checked
+            return corpus
+
+        for s in self.text_columns:
+            data[s] = data[s].apply(clean)
+            print("corpus_clean: ",s)
+        # 텍스트 데이터를 전처리합니다.
+        inputs = self.tokenizing(data)
+
+        return inputs, targets
+
+    def setup(self, stage='fit'):
+        if stage == 'fit':
+            # 학습 데이터와 검증 데이터셋을 호출합니다
+            train_data = pd.read_csv(self.train_path)
+            val_data = pd.read_csv(self.dev_path)
             
-        self.data = data
+            # augmentation - only train
+            train_data = self.augmentation(train_data)
 
-    def __len__(self):
-        return len(self.data)
+            # 학습데이터 준비
+            train_inputs, train_targets = self.preprocessing(train_data)
 
-    def __getitem__(self, index):
-        if self.mode == 'Test':
-            return {
-            'input_ids': torch.LongTensor(self.data[index]['input_ids']),
-            'attention_mask': torch.LongTensor(self.data[index]['attention_mask']),
-            'token_type_ids': torch.LongTensor(self.data[index]['token_type_ids']),
-            'source': torch.LongTensor([self.sources[index]])
-            }
+            # 검증데이터 준비
+            val_inputs, val_targets = self.preprocessing(val_data)
 
-        return {
-            'input_ids': torch.LongTensor(self.data[index]['input_ids']),
-            'attention_mask': torch.LongTensor(self.data[index]['attention_mask']),
-            'token_type_ids': torch.LongTensor(self.data[index]['token_type_ids']),
-            'source': torch.LongTensor([self.sources[index]]),
-            'label': torch.FloatTensor([self.labels[index]])
-        }
-
-class STSDataModule(pl.LightningDataModule):
-    def __init__(self, tok_path, train_path, valid_path, test_path, batch_size=8):
-        super(STSDataModule, self).__init__()
-        self.tok_path = tok_path
-        self.train_path = train_path
-        self.valid_path = valid_path
-        self.test_path = test_path
-        self.batch_size = batch_size
-        self.tokenizer = AutoTokenizer.from_pretrained(self.tok_path)
-
-    def setup(self, stage='fit'):
-        if stage == 'fit':
-            self.train_dataset = STSDataset(self.train_path, self.tokenizer, mode='Train')
-            self.valid_dataset = STSDataset(self.valid_path, self.tokenizer, mode='Valid')
-
+            # train 데이터만 shuffle을 적용해줍니다, 필요하다면 val, test 데이터에도 shuffle을 적용할 수 있습니다
+            self.train_dataset = Dataset(train_inputs, train_targets)
+            self.val_dataset = Dataset(val_inputs, val_targets)
         else:
-            self.test_dataset = STSDataset(self.test_path, self.tokenizer, mode='Test')
+            # 평가데이터 준비
+            test_data = pd.read_csv(self.test_path)
+            test_inputs, test_targets = self.preprocessing(test_data)
+            self.test_dataset = Dataset(test_inputs, test_targets)
 
-    
-    def train_dataloader(self) :
-        return DataLoader(self.train_dataset, batch_size=self.batch_size, shuffle=True)
+            predict_data = pd.read_csv(self.predict_path)
+            predict_inputs, predict_targets = self.preprocessing(predict_data)
+            self.predict_dataset = Dataset(predict_inputs, [])
+
+    def train_dataloader(self):
+        return torch.utils.data.DataLoader(self.train_dataset, batch_size=self.batch_size, shuffle=self.shuffle,num_workers=8)
 
     def val_dataloader(self):
-        return DataLoader(self.valid_dataset, batch_size=self.batch_size)
+        return torch.utils.data.DataLoader(self.val_dataset, batch_size=self.batch_size,num_workers=8)
+
+    def test_dataloader(self):
+        return torch.utils.data.DataLoader(self.test_dataset, batch_size=self.batch_size,num_workers=8)
 
     def predict_dataloader(self):
-        return DataLoader(self.test_dataset, batch_size=self.batch_size)
-
-
-class StackingDataset(Dataset):
-    def __init__(self, path, mode) -> None:
-        super(StackingDataset, self).__init__()
-        self.data = pd.read_csv(path)
-        self.mode = mode
-
-        print(f'{mode} : {len(self.data)}')
-
-
-    def __len__(self):
-        return len(self.data)
-    def __getitem__(self, index):
-        if self.mode == 'Test':
-            return {
-                'inputs': torch.FloatTensor(self.data.iloc[index][['electra','xlm','klue','cnn']])
-            }
-
-        return {'inputs': torch.FloatTensor(self.data.iloc[index][['electra','xlm_pred','klue','rbcnn']]),
-                'label': torch.FloatTensor([self.data.iloc[index]['label']])}
-
-
-class StackingDataModule(pl.LightningDataModule):
-    def __init__(self, train_path, valid_path, test_path, batch_size=8):
-        super(StackingDataModule, self).__init__()
-        self.train_path = train_path
-        self.valid_path = valid_path
-        self.test_path = test_path
-        self.batch_size = batch_size
-
-    def setup(self, stage='fit'):
-        if stage == 'fit':
-            self.train_dataset = StackingDataset(self.train_path, mode='Train')
-            self.valid_dataset = StackingDataset(self.valid_path, mode='Valid')
-
-        else:
-            self.test_dataset = StackingDataset(self.test_path, mode='Test')
-
-    
-    def train_dataloader(self) :
-        return DataLoader(self.train_dataset, batch_size=self.batch_size, shuffle=True)
-
-    def val_dataloader(self):
-        return DataLoader(self.valid_dataset, batch_size=self.batch_size)
-
-    def predict_dataloader(self):
-        return DataLoader(self.test_dataset, batch_size=self.batch_size)
+        return torch.utils.data.DataLoader(self.predict_dataset, batch_size=self.batch_size)
