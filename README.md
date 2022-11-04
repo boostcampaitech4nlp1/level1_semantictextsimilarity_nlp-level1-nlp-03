@@ -16,3 +16,9 @@ klue/RoBERTa + CNN_layers
 - epochs 15, batch_size 16
 - val_loss = 0.154, val_pearson = 0.926
 <center><img src="./imgs/rbcnn.png" width=800></center>
+
+## sRoBERTa_Large
+klue/RoBERTa (base)
+- epochs 200, batch_size 32
+- val_loss = 0.106, val_pearson = 0.9754
+<center><img src="./imgs/sroberta-large.png" width=800></center>
