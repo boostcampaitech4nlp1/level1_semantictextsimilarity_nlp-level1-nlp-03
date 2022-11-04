@@ -1,0 +1,18 @@
+{   
+    "model_type": "electra",
+    "model_path": "monologg/koelectra-base-v3-discriminator",
+    "tok_path": "monologg/koelectra-base-v3-discriminator",
+    "train_path": "data/switch_train.csv",
+    "val_path": "data/switch_dev.csv",
+    "test_path": "data/my_test.csv",
+    "output_path": "electra.csv",
+
+    "max_epochs": 100,
+    "batch_size": 8,
+    "lr": 5e-4,
+    "warmup_ratio": 0.01,
+    "gradient_clip_val": 5.0,
+    "source_emb": false,
+    "dropout": 0.1
+    
+}
