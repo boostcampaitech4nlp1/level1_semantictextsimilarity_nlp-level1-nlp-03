@@ -74,17 +74,6 @@ class Dataloader(pl.LightningDataModule):
             targets = []
 
         # 토크나이징 전 custom preprocess
-        def switch_v2(data):
-            newdata = data.copy()[data['label']!=0.0]
-    
-            newdata['sentence_1'] = data['sentence_2']
-            newdata['sentence_2'] = data['sentence_1']
-
-            print(len(newdata))
-
-            return pd.concat([data, newdata])
-
-        data = switch_v2(data)
 
         def clean(df):
             corpus = re.sub("&",'',df).lower()
@@ -107,7 +96,17 @@ class Dataloader(pl.LightningDataModule):
             val_data = pd.read_csv(self.dev_path)
             
             # augmentation - only train
-            train_data = self.augmentation(train_data)
+            def switch_v2(data):
+                newdata = data.copy()[data['label']!=0.0]
+    
+                newdata['sentence_1'] = data['sentence_2']
+                newdata['sentence_2'] = data['sentence_1']
+
+                print(len(newdata))
+
+                return pd.concat([data, newdata])
+
+            train_data = self.switch_v2(train_data)
 
             # 학습데이터 준비
             train_inputs, train_targets = self.preprocessing(train_data)
