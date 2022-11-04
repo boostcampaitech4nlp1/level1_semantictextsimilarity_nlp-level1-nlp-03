@@ -1,0 +1,13 @@
+{   
+    "model_type": "rb_cnn",
+    "model_path": "klue/roberta-base",
+    "tok_path": "klue/roberta-base",
+    "train_path": "data/final_train.csv",
+    "val_path": "data/final_val.csv",
+    "test_path": "data/final_test.csv",
+    "output_path": "rb_cnn.csv",
+
+    "max_epochs": 15,
+    "batch_size": 16,
+    "lr": 1e-5
+}
