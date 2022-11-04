@@ -1,0 +1,9 @@
+.DS_Store
+# pycache
+__pycache__
+
+# Cpython
+.Cpython
+
+#
+__init__.py

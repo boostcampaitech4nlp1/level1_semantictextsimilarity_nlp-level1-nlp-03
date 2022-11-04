@@ -1,0 +1,27 @@
+path:
+    train_path: ../data/final_train.csv
+    dev_path: ../data/final_val.csv
+    test_path: ../data/final_test.csv # dev.csv
+    predict_path: hanspell_test.csv
+    output_path : sample_sub.csv
+data:
+    shuffle: True
+    augmentation: # adea, bt 등등
+    
+model:
+    model_name: klue/roberta-large
+    smodel : output/hanseong_sts-klue-roberta-large-2022-11-01_18-23-15
+    saved_name: sroberta_large_model
+    warmup_ratio: 0.01
+
+
+train:
+    seed: 42
+    gpus: 1
+    batch_size: 16
+    max_epoch: 50
+    learning_rate: 1e-5
+    logging_step: 1
+    
+checkpoint : epoch=299-val_pearson=0.970-val_loss=1.115
+test : True
