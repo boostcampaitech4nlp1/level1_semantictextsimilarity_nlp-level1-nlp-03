@@ -1,0 +1,26 @@
+# 모델 이름 바꾸기!!!!!!!
+
+custom:
+  model_arch: BaseModel
+  preprocess: base_preprocess
+
+path:
+  train_path: ../data/final_train.csv
+  dev_path: ../data/final_val.csv
+  test_path: ../data/final_test.csv
+  predict_path: ../data/test.csv
+
+data:
+  shuffle: True
+  augmentation: base_augmentation
+
+model:
+  model_name: xlm-roberta-large
+  saved_name: xlm-roberta-large-re-re-re
+
+train:
+  gpus: 1
+  batch_size: 12
+  max_epoch: 10
+  learning_rate: 1e-5
+  logging_step: 1
