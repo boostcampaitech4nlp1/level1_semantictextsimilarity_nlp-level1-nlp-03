@@ -1,0 +1,11 @@
+train_path : '../data/train_path.csv'
+dev_path : '../data/val_path.csv'
+test_path : '../data/test_path.csv'
+
+pretrained_model_name: 'klue/roberta-large'
+sts_num_epochs : 20
+train_batch_size : 32
+sts_model_save_path : 'output/hanseong_sts-'+pretrained_model_name.replace("/", "-")+'-'+datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
+
+test : True
+  save_path : 'output/hanseong_sts-klue-roberta-large-2022-11-01_18-23-15'

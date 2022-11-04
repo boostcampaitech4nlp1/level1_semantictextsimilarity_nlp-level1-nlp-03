@@ -1,0 +1,27 @@
+path:
+    train_path: hanspell_t_08.csv
+    dev_path: hanspell_t_02.csv
+    test_path: hanspell_train_all.csv # dev.csv
+    predict_path: hanspell_test.csv
+
+data:
+    shuffle: True
+    augmentation: # adea, bt 등등
+    
+model:
+    model_name: MiniLM-L6
+    smodel : output/hanseong_sts-klue-roberta-large-2022-11-01_18-23-15
+    saved_name: sroberta_large_model
+    warmup_ratio: 0.01
+
+
+train:
+    seed: 42
+    gpus: 1
+    batch_size: 32
+    max_epoch: 300
+    learning_rate: 1e-6
+    logging_step: 1
+    
+checkpoint : False
+test : False
